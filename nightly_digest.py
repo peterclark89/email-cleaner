@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-# --- CONFIGURE YOUR CREDENTIALS ---
-EMAIL_ADDRESS  = "peterclark89@gmail.com"
-EMAIL_PASSWORD = "ugds ogdn qnuy kcbw"
-SMTP_HOST      = "smtp.gmail.com"
-SMTP_PORT      = 465
-# Point this at wherever your webhook_service is running:
-WEBHOOK_URL    = "http://127.0.0.1:5000"
-# ------------------------------------
-
+import os
 import json
 from mail_scanner import scan_senders   # returns (corporate_list, unknown_dict)
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+# ─── Load configuration from environment ───────────────────────────────────
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # e.g. "https://your-app-name.streamlit.app"
+# ──────────────────────────────────────────────────────────────────────────
 
 def main():
     # 1. Scan your mailbox
@@ -32,12 +32,13 @@ def main():
       <body>
         <p>You have <strong>{len(new_unknown)}</strong> new unknown senders.</p>
         <p>
-          <a href="{manage_link}" style="font-size:16px;
-                                           padding:10px 20px;
-                                           background:#007bff;
-                                           color:#fff;
-                                           text-decoration:none;
-                                           border-radius:4px;">
+          <a href="{manage_link}" style="
+               font-size:16px;
+               padding:10px 20px;
+               background:#007bff;
+               color:#fff;
+               text-decoration:none;
+               border-radius:4px;">
             Manage &amp; Classify Senders
           </a>
         </p>
