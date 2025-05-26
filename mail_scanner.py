@@ -1,3 +1,4 @@
+import os
 import imaplib
 import email
 import json
@@ -5,18 +6,24 @@ import os
 import datetime
 from email.utils import parseaddr
 
+# load credentials from environment
+gmail_addr = os.getenv("EMAIL_ADDRESS")
+gmail_pass = os.getenv("EMAIL_PASSWORD")
+yahoo_addr = os.getenv("YAHOO_EMAIL")
+yahoo_pass = os.getenv("YAHOO_PASSWORD")
+
 # ─── CONFIGURATION ────────────────────────────────────────────────────────
 ACCOUNTS = [
-    {
-        "EMAIL_ADDRESS": "peterclark89@gmail.com",
-        "EMAIL_PASSWORD": "ugds ogdn qnuy kcbw",
-        "IMAP_SERVER":    "imap.gmail.com"
-    },
-    {
-        "EMAIL_ADDRESS": "peterclark89@yahoo.com",
-        "EMAIL_PASSWORD": "myvj lbkh ujfo azqp",
-        "IMAP_SERVER":    "imap.mail.yahoo.com"
-    }
+     {
+         "EMAIL_ADDRESS": gmail_addr,
+         "EMAIL_PASSWORD": gmail_pass,
+         "IMAP_SERVER":    "imap.gmail.com"
+     },
+     {
+         "EMAIL_ADDRESS": yahoo_addr,
+         "EMAIL_PASSWORD": yahoo_pass,
+         "IMAP_SERVER":    "imap.mail.yahoo.com"
+     }
 ]
 
 # Folders to scan: Gmail & Yahoo

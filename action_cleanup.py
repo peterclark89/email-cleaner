@@ -1,28 +1,34 @@
 # action_cleanup.py
-
+import os
 import imaplib
 import datetime
 import requests
 import smtplib
 from email.mime.text import MIMEText
 
+gmail_addr = os.getenv("EMAIL_ADDRESS")
+gmail_pass = os.getenv("EMAIL_PASSWORD")
+yahoo_addr = os.getenv("YAHOO_EMAIL")
+yahoo_pass = os.getenv("YAHOO_PASSWORD")
+
+
 # ─── CONFIGURATION ────────────────────────────────────────────────────────
-ACCOUNTS = [
-    {
-        "EMAIL_ADDRESS": "peterclark89@gmail.com",
-        "EMAIL_PASSWORD": "ugds ogdn qnuy kcbw",
-        "IMAP_SERVER":    "imap.gmail.com",
-        "SMTP_SERVER":    "smtp.gmail.com",
-        "SMTP_PORT":      465
-    },
-    {
-        "EMAIL_ADDRESS": "peterclark89@yahoo.com",
-        "EMAIL_PASSWORD": "myvj lbkh ujfo azqp",
-        "IMAP_SERVER":    "imap.mail.yahoo.com",
-        "SMTP_SERVER":    "smtp.mail.yahoo.com",
-        "SMTP_PORT":      465
-    }
-]
++ ACCOUNTS = [
++     {
++         "EMAIL_ADDRESS": gmail_addr,
++         "EMAIL_PASSWORD": gmail_pass,
++         "IMAP_SERVER":    "imap.gmail.com",
++         "SMTP_SERVER":    "smtp.gmail.com",
++         "SMTP_PORT":      465
++     },
++     {
++         "EMAIL_ADDRESS": yahoo_addr,
++         "EMAIL_PASSWORD": yahoo_pass,
++         "IMAP_SERVER":    "imap.mail.yahoo.com",
++         "SMTP_SERVER":    "smtp.mail.yahoo.com",
++         "SMTP_PORT":      465
++     }
++ ]
 
 FOLDERS  = ["INBOX", "[Gmail]/Spam", "Inbox", "Bulk"]
 DAYS_OLD = 30
