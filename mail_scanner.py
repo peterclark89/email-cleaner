@@ -1,41 +1,43 @@
+# mail_scanner.py
+
 import os
 import imaplib
 import email
 import json
-import os
 import datetime
 from email.utils import parseaddr
 
-# load credentials from environment
+# ─── Load credentials from environment ─────────────────────────────────────
 gmail_addr = os.getenv("EMAIL_ADDRESS")
 gmail_pass = os.getenv("EMAIL_PASSWORD")
 yahoo_addr = os.getenv("YAHOO_EMAIL")
 yahoo_pass = os.getenv("YAHOO_PASSWORD")
+# ──────────────────────────────────────────────────────────────────────────
 
-# ─── CONFIGURATION ────────────────────────────────────────────────────────
+# ─── CONFIGURATION: one dict per account ──────────────────────────────────
 ACCOUNTS = [
-     {
-         "EMAIL_ADDRESS": gmail_addr,
-         "EMAIL_PASSWORD": gmail_pass,
-         "IMAP_SERVER":    "imap.gmail.com"
-     },
-     {
-         "EMAIL_ADDRESS": yahoo_addr,
-         "EMAIL_PASSWORD": yahoo_pass,
-         "IMAP_SERVER":    "imap.mail.yahoo.com"
-     }
+    {
+        "EMAIL_ADDRESS": gmail_addr,
+        "EMAIL_PASSWORD": gmail_pass,
+        "IMAP_SERVER":    "imap.gmail.com"
+    },
+    {
+        "EMAIL_ADDRESS": yahoo_addr,
+        "EMAIL_PASSWORD": yahoo_pass,
+        "IMAP_SERVER":    "imap.mail.yahoo.com"
+    }
 ]
+# ──────────────────────────────────────────────────────────────────────────
 
-# Folders to scan: Gmail & Yahoo
+# Folders to scan
 FOLDERS  = ["INBOX", "[Gmail]/Spam", "Inbox", "Bulk"]
 DAYS_OLD = 30
 
-# Shared safelist files
+# Safelist files
 WHITELIST_FILE = "whitelist.json"
 BLACKLIST_FILE = "blacklist.json"
 APPROVED_FILE  = "approved_senders.json"
 ONEOFF_FILE    = "oneoff.json"
-# ──────────────────────────────────────────────────────────────────────────
 
 def load_json(path, default):
     if not os.path.exists(path):
@@ -46,7 +48,7 @@ def load_json(path, default):
     except Exception:
         return default
 
-    # whitelist.json: wrap legacy list → dict
+    # whitelist.json → dict with emails/domains
     if isinstance(default, dict) and 'emails' in default:
         if isinstance(data, list):
             return {'emails': data, 'domains': []}
@@ -56,7 +58,7 @@ def load_json(path, default):
                 'domains': data.get('domains', [])
             }
 
-    # approved_senders.json / oneoff.json: unwrap {"senders": [...]} → list
+    # approved_senders.json / oneoff.json → plain list
     if isinstance(default, list):
         if isinstance(data, list):
             return data
@@ -72,8 +74,8 @@ def login_imap(acct):
 
 def scan_senders(limit=None):
     """
-    Scans all ACCOUNTS & FOLDERS for messages older than DAYS_OLD,
-    applies safelists, and returns (sorted_corporate_list, unknown_dict).
+    Scan all ACCOUNTS & FOLDERS for mail older than DAYS_OLD,
+    apply safelists, and return (sorted_corporate_list, unknown_dict).
     """
     whitelist = load_json(WHITELIST_FILE, {'emails': [], 'domains': []})
     blacklist = load_json(BLACKLIST_FILE, {'domains': []})
@@ -87,22 +89,16 @@ def scan_senders(limit=None):
              .strftime("%d-%b-%Y")
 
     for acct in ACCOUNTS:
-        print(f"\n--- Scanning account: {acct['EMAIL_ADDRESS']} ---")
         mail = login_imap(acct)
         for folder in FOLDERS:
             typ, _ = mail.select(folder)
             if typ != 'OK':
                 continue
 
-            print(f"Scanning folder {folder} (before {cutoff})")
             status, data = mail.search(None, f'BEFORE {cutoff}')
             if status != 'OK':
                 continue
             ids = data[0].split()
-            print(f" Found {len(ids)} messages.")
-
-            if limit:
-                ids = ids[:limit]
             if not ids:
                 continue
 
@@ -112,28 +108,22 @@ def scan_senders(limit=None):
             if status != 'OK':
                 continue
 
-            processed = 0
             for part in parts:
                 if not isinstance(part, tuple):
                     continue
                 msg = email.message_from_bytes(part[1])
-                sender = parseaddr(msg.get('From', ''))[1].lower()
+                sender = parseaddr(msg.get('From',''))[1].lower()
                 domain = sender.split('@')[-1] if '@' in sender else ''
 
-                # skip whitelist
+                # Skip whitelist
                 if sender in whitelist['emails'] or domain in whitelist['domains']:
-                    processed += 1
                     continue
 
-                # auto-cleanup?
+                # Corporate auto-cleanup
                 if domain in blacklist['domains'] or sender in approved or sender in oneoff:
                     corporate.add(sender)
                 else:
                     unknown[sender] = unknown.get(sender, 0) + 1
-
-                processed += 1
-
-            print(f" Processed {processed} messages in {folder}.")
 
         mail.logout()
 
@@ -141,9 +131,9 @@ def scan_senders(limit=None):
 
 if __name__ == "__main__":
     corp, unk = scan_senders(limit=None)
-    print("\n=== Corporate senders to clean up ===")
+    print("Corporate senders to clean up:")
     for s in corp:
         print(" -", s)
-    print(f"\n=== Unknown senders ({len(unk)}) ===")
-    for s, count in unk.items():
-        print(f" - {s}: {count} messages")
+    print(f"\nUnknown senders ({len(unk)})")
+    for s,count in unk.items():
+        print(f" - {s}: {count}")
