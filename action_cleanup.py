@@ -1,34 +1,36 @@
 # action_cleanup.py
+
 import os
 import imaplib
+import email
 import datetime
 import requests
 import smtplib
 from email.mime.text import MIMEText
 
+# Load credentials from environment
 gmail_addr = os.getenv("EMAIL_ADDRESS")
 gmail_pass = os.getenv("EMAIL_PASSWORD")
 yahoo_addr = os.getenv("YAHOO_EMAIL")
 yahoo_pass = os.getenv("YAHOO_PASSWORD")
 
-
 # ─── CONFIGURATION ────────────────────────────────────────────────────────
-+ ACCOUNTS = [
-+     {
-+         "EMAIL_ADDRESS": gmail_addr,
-+         "EMAIL_PASSWORD": gmail_pass,
-+         "IMAP_SERVER":    "imap.gmail.com",
-+         "SMTP_SERVER":    "smtp.gmail.com",
-+         "SMTP_PORT":      465
-+     },
-+     {
-+         "EMAIL_ADDRESS": yahoo_addr,
-+         "EMAIL_PASSWORD": yahoo_pass,
-+         "IMAP_SERVER":    "imap.mail.yahoo.com",
-+         "SMTP_SERVER":    "smtp.mail.yahoo.com",
-+         "SMTP_PORT":      465
-+     }
-+ ]
+ACCOUNTS = [
+    {
+        "EMAIL_ADDRESS": gmail_addr,
+        "EMAIL_PASSWORD": gmail_pass,
+        "IMAP_SERVER":    "imap.gmail.com",
+        "SMTP_SERVER":    "smtp.gmail.com",
+        "SMTP_PORT":      465
+    },
+    {
+        "EMAIL_ADDRESS": yahoo_addr,
+        "EMAIL_PASSWORD": yahoo_pass,
+        "IMAP_SERVER":    "imap.mail.yahoo.com",
+        "SMTP_SERVER":    "smtp.mail.yahoo.com",
+        "SMTP_PORT":      465
+    }
+]
 
 FOLDERS  = ["INBOX", "[Gmail]/Spam", "Inbox", "Bulk"]
 DAYS_OLD = 30
@@ -69,8 +71,10 @@ def unsubscribe_and_delete_sender(target_sender):
                 continue
 
             fetch_list = b','.join(ids)
-            status, parts = mail.fetch(fetch_list,
-                                       '(BODY.PEEK[HEADER.FIELDS (LIST-UNSUBSCRIBE)])')
+            status, parts = mail.fetch(
+                fetch_list,
+                '(BODY.PEEK[HEADER.FIELDS (LIST-UNSUBSCRIBE)])'
+            )
             if status != 'OK':
                 continue
 
@@ -79,7 +83,7 @@ def unsubscribe_and_delete_sender(target_sender):
                     continue
                 msg = email.message_from_bytes(part[1])
                 unsub_hdr = msg.get("List-Unsubscribe", "")
-                # handle HTTP unsub
+                # Handle HTTP unsubscribe links
                 for token in unsub_hdr.split(','):
                     t = token.strip().strip('<>')
                     if t.lower().startswith("http"):
@@ -101,7 +105,7 @@ def unsubscribe_and_delete_sender(target_sender):
                         except:
                             pass
 
-            # mark & expunge
+            # Mark messages \Deleted and expunge
             mail.store(fetch_list, '+FLAGS', '\\Deleted')
             mail.expunge()
 
