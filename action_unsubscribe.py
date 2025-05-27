@@ -18,22 +18,22 @@ yahoo_pass = os.getenv("YAHOO_PASSWORD")
 
 
 # ─── CONFIGURATION ────────────────────────────────────────────────────────
-+ ACCOUNTS = [
-+     {
-+         "EMAIL_ADDRESS": gmail_addr,
-+         "EMAIL_PASSWORD": gmail_pass,
-+         "IMAP_SERVER":    "imap.gmail.com",
-+         "SMTP_SERVER":    "smtp.gmail.com",
-+         "SMTP_PORT":      465
-+     },
-+     {
-+         "EMAIL_ADDRESS": yahoo_addr,
-+         "EMAIL_PASSWORD": yahoo_pass,
-+         "IMAP_SERVER":    "imap.mail.yahoo.com",
-+         "SMTP_SERVER":    "smtp.mail.yahoo.com",
-+         "SMTP_PORT":      465
-+     }
-+ ]
+ACCOUNTS = [
+     {
+         "EMAIL_ADDRESS": gmail_addr,
+         "EMAIL_PASSWORD": gmail_pass,
+         "IMAP_SERVER":    "imap.gmail.com",
+         "SMTP_SERVER":    "smtp.gmail.com",
+         "SMTP_PORT":      465
+     },
+     {
+         "EMAIL_ADDRESS": yahoo_addr,
+         "EMAIL_PASSWORD": yahoo_pass,
+         "IMAP_SERVER":    "imap.mail.yahoo.com",
+         "SMTP_SERVER":    "smtp.mail.yahoo.com",
+         "SMTP_PORT":      465
+     }
+]
 
 FOLDERS        = ["INBOX", "[Gmail]/Spam", "Inbox", "Bulk"]
 DAYS_OLD       = 30
