@@ -9,85 +9,85 @@ WHITELIST_FILE = "whitelist.json"
 APPROVED_FILE  = "approved_senders.json"
 ONEOFF_FILE    = "oneoff.json"
 
-# Ensure safelist files exist
+# Ensure safelists exist
 for path, default in [
-    (WHITELIST_FILE,   {"emails": [], "domains": []}),
-    (APPROVED_FILE,    []),
-    (ONEOFF_FILE,      [])
+    (WHITELIST_FILE, {"emails": [], "domains": []}),
+    (APPROVED_FILE,  []),
+    (ONEOFF_FILE,    [])
 ]:
     if not os.path.exists(path):
         with open(path, "w") as f:
             json.dump(default, f)
 
-# ─── Initial scan & session-state setup ──────────────────────────────────
+# ─── Initial scan & session state ─────────────────────────────────────────
 if "unknown" not in st.session_state:
-    _, unk = scan_senders(limit=None)
-    # filter out already classified
+    # Load existing safelists
     wl = load_json(WHITELIST_FILE,   {"emails": [], "domains": []})["emails"]
     apr = load_json(APPROVED_FILE,    [])
     oo = load_json(ONEOFF_FILE,      [])
+    # Scan for unknown senders
+    _, unk = scan_senders(limit=None)
+    # Filter out already classified senders
     st.session_state.unknown = {
-        s: unk[s]
-        for s in unk
+        s: cnt for s, cnt in unk.items()
         if s not in wl and s not in apr and s not in oo
     }
-    # initialize all choices to None
+    # Initialize choices to None
     st.session_state.choices = {s: None for s in st.session_state.unknown}
 
+# ─── Page setup ────────────────────────────────────────────────────────────
 st.set_page_config(layout="wide")
 st.title("📧 Email Cleanup Dashboard")
 
 # ─── Header with Select-All buttons ────────────────────────────────────────
 header_cols = st.columns([4,1,1,1])
 header_cols[0].markdown("**Sender (count)**")
-# Select All Whitelist
+# Whitelist column
 if header_cols[1].button("Select All", key="sel_all_wl"):
     for s in st.session_state.choices:
         st.session_state.choices[s] = "whitelist"
+    st.experimental_rerun()
 header_cols[1].markdown("**Whitelist**")
-# Select All Cleanup
+# Auto-Cleanup column
 if header_cols[2].button("Select All", key="sel_all_ac"):
     for s in st.session_state.choices:
         st.session_state.choices[s] = "approved"
+    st.experimental_rerun()
 header_cols[2].markdown("**Cleanup**")
-# Select All One-Off
+# One-Off column
 if header_cols[3].button("Select All", key="sel_all_oo"):
     for s in st.session_state.choices:
         st.session_state.choices[s] = "oneoff"
+    st.experimental_rerun()
 header_cols[3].markdown("**One-Off**")
 
 # ─── Per-sender inline buttons ────────────────────────────────────────────
 for sender, count in st.session_state.unknown.items():
-    choice = st.session_state.choices.get(sender)
-    # row background
-    if choice == "whitelist":
-        bg = "#d4edda"
-    elif choice == "approved":
-        bg = "#d1ecf1"
-    elif choice == "oneoff":
-        bg = "#f8d7da"
-    else:
-        bg = "transparent"
-
+    choice = st.session_state.choices[sender]
     cols = st.columns([4,1,1,1])
-    cols[0].markdown(
-        f'<div style="background:{bg};padding:6px;border-radius:4px">'
-        f"{sender} ({count})</div>",
-        unsafe_allow_html=True
-    )
+    cols[0].markdown(f"**{sender}** ({count})")
+
     # Whitelist button
-    if cols[1].button("●", key=f"wl_{sender}"):
+    icon = "🔘" if choice == "whitelist" else "⚪"
+    if cols[1].button(icon, key=f"wl_{sender}"):
         st.session_state.choices[sender] = "whitelist"
-    # Cleanup button
-    if cols[2].button("●", key=f"ac_{sender}"):
+        st.experimental_rerun()
+
+    # Auto-Cleanup button
+    icon = "🔘" if choice == "approved" else "⚪"
+    if cols[2].button(icon, key=f"ac_{sender}"):
         st.session_state.choices[sender] = "approved"
+        st.experimental_rerun()
+
     # One-Off button
-    if cols[3].button("●", key=f"oo_{sender}"):
+    icon = "🔘" if choice == "oneoff" else "⚪"
+    if cols[3].button(icon, key=f"oo_{sender}"):
         st.session_state.choices[sender] = "oneoff"
+        st.experimental_rerun()
 
 # ─── Submit Classifications ───────────────────────────────────────────────
 if st.button("💾 Submit Classifications"):
-    # Load current safelists
+    # Load safelists
     wl = load_json(WHITELIST_FILE, {"emails": [], "domains": []})
     apr = load_json(APPROVED_FILE, [])
     oo = load_json(ONEOFF_FILE, [])
@@ -96,9 +96,9 @@ if st.button("💾 Submit Classifications"):
     for sender, choice in st.session_state.choices.items():
         if choice == "whitelist" and sender not in wl["emails"]:
             wl["emails"].append(sender)
-        if choice == "approved" and sender not in apr:
+        elif choice == "approved" and sender not in apr:
             apr.append(sender)
-        if choice == "oneoff" and sender not in oo:
+        elif choice == "oneoff" and sender not in oo:
             oo.append(sender)
 
     # Write safelists
@@ -114,9 +114,7 @@ if st.button("💾 Submit Classifications"):
 
 # ─── Run Cleanup ───────────────────────────────────────────────────────────
 if st.button("🧹 Run Cleanup for Approved & One-Off"):
-    approved_list = load_json(APPROVED_FILE, [])
-    oneoff_list   = load_json(ONEOFF_FILE, [])
-    to_cleanup = approved_list + oneoff_list
+    to_cleanup = load_json(APPROVED_FILE, []) + load_json(ONEOFF_FILE, [])
     if to_cleanup:
         with st.spinner("Unsubscribing & deleting…"):
             for s in to_cleanup:
