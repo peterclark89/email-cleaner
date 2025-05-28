@@ -29,14 +29,14 @@ if "unknown" not in st.session_state or "choices" not in st.session_state:
     _, unk = scan_senders(limit=None)
     # Filter out already classified
     st.session_state.unknown = {
-        s: cnt for s, cnt in unk.items() 
+        s: cnt for s, cnt in unk.items()
         if s not in wl and s not in apr and s not in oo
     }
     # Initialize all choices to None
     st.session_state.choices = {s: None for s in st.session_state.unknown}
 
 # ─── Page setup ────────────────────────────────────────────────────────────
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="Email Cleanup Dashboard")
 st.title("📧 Email Cleanup Dashboard")
 
 # ─── Header with Select-All buttons ────────────────────────────────────────
@@ -67,18 +67,18 @@ for sender, count in st.session_state.unknown.items():
     cols = st.columns([4,1,1,1])
     cols[0].markdown(f"**{sender}** ({count})")
 
-    # Whitelist button
-    icon = "🔘" if choice == "whitelist" else "⚪"
+    # Whitelist button (checkbox)
+    icon = "☑️" if choice == "whitelist" else "☐"
     if cols[1].button(icon, key=f"wl_{sender}"):
         st.session_state.choices[sender] = "whitelist"
 
-    # Auto-Cleanup button
-    icon = "🔘" if choice == "approved" else "⚪"
+    # Auto-Cleanup button (checkbox)
+    icon = "☑️" if choice == "approved" else "☐"
     if cols[2].button(icon, key=f"ac_{sender}"):
         st.session_state.choices[sender] = "approved"
 
-    # One-Off button
-    icon = "🔘" if choice == "oneoff" else "⚪"
+    # One-Off button (checkbox)
+    icon = "☑️" if choice == "oneoff" else "☐"
     if cols[3].button(icon, key=f"oo_{sender}"):
         st.session_state.choices[sender] = "oneoff"
 
@@ -110,9 +110,12 @@ if st.button("💾 Submit Classifications"):
 
     # Rebuild unknown list and reset choices
     _, unk = scan_senders(limit=None)
+    wl = load_json(WHITELIST_FILE, {"emails": [], "domains": []})["emails"]
+    apr = load_json(APPROVED_FILE, [])
+    oo  = load_json(ONEOFF_FILE, [])
     st.session_state.unknown = {
         s: cnt for s, cnt in unk.items()
-        if s not in wl["emails"] and s not in apr and s not in oo
+        if s not in wl and s not in apr and s not in oo
     }
     st.session_state.choices = {s: None for s in st.session_state.unknown}
 
