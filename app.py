@@ -6,28 +6,18 @@ from mail_scanner import scan_senders, load_json
 from action_cleanup import unsubscribe_and_delete_sender as cleanup_sender
 from github import Github  # PyGithub
 
-# ─── PAGE CONFIG (must be the first Streamlit call) ───────────────────────
+# ─── PAGE CONFIG (must be first Streamlit call) ──────────────────────────
 st.set_page_config(layout="wide", page_title="Email Cleanup Dashboard")
 # ──────────────────────────────────────────────────────────────────────────
 
-# ─── “Reset Scan” logic ─────────────────────────────────────────────────────
-if "initialized" not in st.session_state:
-    st.session_state.initialized = True
-else:
-    if st.button("🔄 Reset Scan"):
-        for key in ["unknown", "choices"]:
-            st.session_state.pop(key, None)
-        st.experimental_rerun()
-# ──────────────────────────────────────────────────────────────────────────
-
-# ─── CONFIG ────────────────────────────────────────────────────────────────
+# ─── CONFIG ───────────────────────────────────────────────────────────────
 WHITELIST_FILE = "whitelist.json"
 APPROVED_FILE  = "approved_senders.json"
 ONEOFF_FILE    = "oneoff.json"
 REPO_NAME      = "peterclark89/email-cleaner"
 # ──────────────────────────────────────────────────────────────────────────
 
-# A simple module‐level flag to track background cleanup status
+# A simple flag to track background cleanup status
 cleanup_status = {"running": False}
 
 def push_to_github(local_path, repo_path, commit_message):
@@ -67,6 +57,12 @@ for path, default in [
         with open(path, "w") as f:
             json.dump(default, f)
 
+# ─── “Reset Scan” button (clears cached scan results) ──────────────────────
+if st.button("🔄 Reset Scan"):
+    for key in ["unknown", "choices"]:
+        st.session_state.pop(key, None)
+    st.experimental_rerun()
+
 # ─── Initial scan & session-state setup ──────────────────────────────────
 if "unknown" not in st.session_state or "choices" not in st.session_state:
     wl   = load_json(WHITELIST_FILE, {"emails": [], "domains": []})["emails"]
@@ -82,7 +78,7 @@ if "unknown" not in st.session_state or "choices" not in st.session_state:
 # ─── Page title ────────────────────────────────────────────────────────────
 st.title("📧 Email Cleanup Dashboard")
 
-# ─── If cleanup is in progress, show a banner ───────────────────────────────
+# ─── If cleanup is in progress, show a banner ──────────────────────────────
 if cleanup_status["running"]:
     st.warning("⚙️ Cleanup is running in the background… you can still classify new senders.")
 
@@ -166,7 +162,7 @@ if st.button("💾 Submit Classifications"):
     }
     st.session_state.choices = {s: None for s in st.session_state.unknown}
 
-# ─── Run Cleanup (launch in background) ────────────────────────────────────
+# ─── Run Cleanup (launch in background) ───────────────────────────────────
 if st.button("🧹 Run Cleanup for Approved & One-Off"):
     if not cleanup_status["running"]:
         to_cleanup = load_json(APPROVED_FILE, []) + load_json(ONEOFF_FILE, [])
