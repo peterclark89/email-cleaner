@@ -10,7 +10,7 @@ from github import Github  # PyGithub
 st.set_page_config(layout="wide", page_title="Email Cleanup Dashboard")
 # ──────────────────────────────────────────────────────────────────────────
 
-# ─── CONFIG ───────────────────────────────────────────────────────────────
+# ─── CONFIG ────────────────────────────────────────────────────────────────
 WHITELIST_FILE = "whitelist.json"
 APPROVED_FILE  = "approved_senders.json"
 ONEOFF_FILE    = "oneoff.json"
@@ -59,9 +59,8 @@ for path, default in [
 
 # ─── “Reset Scan” button (clears cached scan results) ──────────────────────
 if st.button("🔄 Reset Scan"):
-    for key in ["unknown", "choices"]:
-        st.session_state.pop(key, None)
-    st.experimental_rerun()
+    st.session_state.pop("unknown", None)
+    st.session_state.pop("choices", None)
 
 # ─── Initial scan & session-state setup ──────────────────────────────────
 if "unknown" not in st.session_state or "choices" not in st.session_state:
