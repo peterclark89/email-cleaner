@@ -1,9 +1,10 @@
 import os
+import threading
 import streamlit as st
 import json
 from mail_scanner import scan_senders, load_json
 from action_cleanup import unsubscribe_and_delete_sender as cleanup_sender
-from github import Github   # PyGithub
+from github import Github  # PyGithub
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────
 WHITELIST_FILE = "whitelist.json"
@@ -11,6 +12,9 @@ APPROVED_FILE  = "approved_senders.json"
 ONEOFF_FILE    = "oneoff.json"
 REPO_NAME      = "peterclark89/email-cleaner"
 # ──────────────────────────────────────────────────────────────────────────
+
+# A simple module‐level flag (dict) to track cleanup status across reruns
+cleanup_status = {"running": False}
 
 def push_to_github(local_path, repo_path, commit_message):
     """
@@ -27,7 +31,21 @@ def push_to_github(local_path, repo_path, commit_message):
     except Exception:
         repo.create_file(repo_path, commit_message, content)
 
-# Ensure safelist files exist
+def run_cleanup_thread(senders_to_cleanup):
+    """
+    This runs in a separate thread to unsubscribe & delete mail for each sender.
+    When done, it clears the running flag.
+    """
+    for s in senders_to_cleanup:
+        try:
+            cleanup_sender(s)
+        except Exception as e:
+            # Optionally log e somewhere
+            pass
+    # After finishing, clear the flag:
+    cleanup_status["running"] = False
+
+# ─── Ensure safelist files exist ────────────────────────────────────────────
 for path, default in [
     (WHITELIST_FILE, {"emails": [], "domains": []}),
     (APPROVED_FILE,  []),
@@ -39,6 +57,7 @@ for path, default in [
 
 # ─── Initial scan & session-state setup ──────────────────────────────────
 if "unknown" not in st.session_state or "choices" not in st.session_state:
+    # Load existing safelists
     wl   = load_json(WHITELIST_FILE, {"emails": [], "domains": []})["emails"]
     apr  = load_json(APPROVED_FILE,  [])
     oo   = load_json(ONEOFF_FILE,    [])
@@ -47,22 +66,31 @@ if "unknown" not in st.session_state or "choices" not in st.session_state:
         s: cnt for s, cnt in unk.items()
         if s not in wl and s not in apr and s not in oo
     }
+    # Initialize all choices to None
     st.session_state.choices = {s: None for s in st.session_state.unknown}
 
+# ─── Page setup ────────────────────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Email Cleanup Dashboard")
 st.title("📧 Email Cleanup Dashboard")
+
+# ─── If cleanup is in progress, show a banner ───────────────────────────────
+if cleanup_status["running"]:
+    st.warning("⚙️ Cleanup is running in the background… you can still classify new senders.")
 
 # ─── Header with Select-All buttons ────────────────────────────────────────
 header_cols = st.columns([4,1,1,1])
 header_cols[0].markdown("**Sender (count)**")
+
 if header_cols[1].button("Select All", key="sel_all_wl"):
     for s in st.session_state.choices:
         st.session_state.choices[s] = "whitelist"
 header_cols[1].markdown("**Whitelist**")
+
 if header_cols[2].button("Select All", key="sel_all_ac"):
     for s in st.session_state.choices:
         st.session_state.choices[s] = "approved"
 header_cols[2].markdown("**Cleanup**")
+
 if header_cols[3].button("Select All", key="sel_all_oo"):
     for s in st.session_state.choices:
         st.session_state.choices[s] = "oneoff"
@@ -112,9 +140,9 @@ if st.button("💾 Submit Classifications"):
         json.dump(oo, f, indent=2)
 
     # Push JSON files back to GitHub
-    push_to_github(WHITELIST_FILE,  "whitelist.json",  "Update whitelist via UI")
-    push_to_github(APPROVED_FILE,   "approved_senders.json", "Update approved list via UI")
-    push_to_github(ONEOFF_FILE,     "oneoff.json",     "Update one-off list via UI")
+    push_to_github(WHITELIST_FILE,  "whitelist.json",         "Update whitelist via UI")
+    push_to_github(APPROVED_FILE,   "approved_senders.json",  "Update approved list via UI")
+    push_to_github(ONEOFF_FILE,     "oneoff.json",            "Update one-off list via UI")
 
     st.success("✅ Classifications saved and pushed to GitHub!")
 
@@ -129,18 +157,25 @@ if st.button("💾 Submit Classifications"):
     }
     st.session_state.choices = {s: None for s in st.session_state.unknown}
 
-# ─── Run Cleanup ───────────────────────────────────────────────────────────
+# ─── Run Cleanup (launch in background) ────────────────────────────────────
 if st.button("🧹 Run Cleanup for Approved & One-Off"):
-    to_cleanup = load_json(APPROVED_FILE, []) + load_json(ONEOFF_FILE, [])
-    if to_cleanup:
-        with st.spinner("Unsubscribing & deleting…"):
-            for s in to_cleanup:
-                cleanup_sender(s)
-        st.success(f"✅ Completed cleanup for {len(to_cleanup)} senders.")
+    if not cleanup_status["running"]:
+        to_cleanup = load_json(APPROVED_FILE, []) + load_json(ONEOFF_FILE, [])
+        if to_cleanup:
+            cleanup_status["running"] = True
+            thread = threading.Thread(
+                target=run_cleanup_thread,
+                args=(to_cleanup,),
+                daemon=True
+            )
+            thread.start()
+            st.success("🚀 Cleanup started in background!")
+        else:
+            st.info("No senders marked for cleanup.")
     else:
-        st.info("No senders marked for cleanup.")
-        
-# ─── Debug: Show current safelists ─────────────────────────────────────────
+        st.info("Cleanup is already running.")
+
+# ─── Debug: Show current safelists (optional) ─────────────────────────────
 with st.expander("🔍 View current safelists"):
     st.markdown("**whitelist.json**")
     st.code(json.dumps(load_json(WHITELIST_FILE, {"emails":[], "domains":[]}), indent=2))
