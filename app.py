@@ -10,15 +10,12 @@ from github import Github  # PyGithub
 st.set_page_config(layout="wide", page_title="Email Cleanup Dashboard")
 # ──────────────────────────────────────────────────────────────────────────
 
-# ─── CONFIG ────────────────────────────────────────────────────────────────
+# ─── CONFIG ───────────────────────────────────────────────────────────────
 WHITELIST_FILE = "whitelist.json"
 APPROVED_FILE  = "approved_senders.json"
 ONEOFF_FILE    = "oneoff.json"
 REPO_NAME      = "peterclark89/email-cleaner"
 # ──────────────────────────────────────────────────────────────────────────
-
-# A simple flag to track background cleanup status
-cleanup_status = {"running": False}
 
 def push_to_github(local_path, repo_path, commit_message):
     """
@@ -38,14 +35,15 @@ def push_to_github(local_path, repo_path, commit_message):
 def run_cleanup_thread(senders_to_cleanup):
     """
     Runs in a separate thread to unsubscribe & delete mail for each sender.
-    When done, it clears the running flag.
+    When done, it clears the running flag in session_state.
     """
     for s in senders_to_cleanup:
         try:
             cleanup_sender(s)
         except Exception:
             pass
-    cleanup_status["running"] = False
+    # After finishing, clear the flag in session_state
+    st.session_state["cleanup_running"] = False
 
 # ─── Ensure safelist files exist ────────────────────────────────────────────
 for path, default in [
@@ -57,10 +55,16 @@ for path, default in [
         with open(path, "w") as f:
             json.dump(default, f)
 
-# ─── “Reset Scan” button (clears cached scan results) ──────────────────────
+# ─── Initialize cleanup flag on first run ─────────────────────────────────
+if "cleanup_running" not in st.session_state:
+    st.session_state["cleanup_running"] = False
+
+# ─── “Reset Scan” button (clears just scan results) ────────────────────────
 if st.button("🔄 Reset Scan"):
-    st.session_state.pop("unknown", None)
-    st.session_state.pop("choices", None)
+    for key in ["unknown", "choices"]:
+        st.session_state.pop(key, None)
+    # No need to reset "cleanup_running" here
+    st.experimental_rerun()
 
 # ─── Initial scan & session-state setup ──────────────────────────────────
 if "unknown" not in st.session_state or "choices" not in st.session_state:
@@ -78,7 +82,7 @@ if "unknown" not in st.session_state or "choices" not in st.session_state:
 st.title("📧 Email Cleanup Dashboard")
 
 # ─── If cleanup is in progress, show a banner ──────────────────────────────
-if cleanup_status["running"]:
+if st.session_state["cleanup_running"]:
     st.warning("⚙️ Cleanup is running in the background… you can still classify new senders.")
 
 # ─── Header with Select-All buttons ────────────────────────────────────────
@@ -163,10 +167,10 @@ if st.button("💾 Submit Classifications"):
 
 # ─── Run Cleanup (launch in background) ───────────────────────────────────
 if st.button("🧹 Run Cleanup for Approved & One-Off"):
-    if not cleanup_status["running"]:
+    if not st.session_state["cleanup_running"]:
         to_cleanup = load_json(APPROVED_FILE, []) + load_json(ONEOFF_FILE, [])
         if to_cleanup:
-            cleanup_status["running"] = True
+            st.session_state["cleanup_running"] = True
             thread = threading.Thread(
                 target=run_cleanup_thread,
                 args=(to_cleanup,),
