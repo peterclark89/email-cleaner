@@ -42,7 +42,6 @@ def run_cleanup_thread(senders_to_cleanup):
             cleanup_sender(s)
         except Exception:
             pass
-    # After finishing, clear the flag in session_state
     st.session_state["cleanup_running"] = False
 
 # ─── Ensure safelist files exist ────────────────────────────────────────────
@@ -63,8 +62,6 @@ if "cleanup_running" not in st.session_state:
 if st.button("🔄 Reset Scan"):
     for key in ["unknown", "choices"]:
         st.session_state.pop(key, None)
-    # No need to reset "cleanup_running" here
-    st.experimental_rerun()
 
 # ─── Initial scan & session-state setup ──────────────────────────────────
 if "unknown" not in st.session_state or "choices" not in st.session_state:
@@ -72,6 +69,11 @@ if "unknown" not in st.session_state or "choices" not in st.session_state:
     apr  = load_json(APPROVED_FILE,  [])
     oo   = load_json(ONEOFF_FILE,    [])
     _, unk = scan_senders(limit=None)
+
+    # Defensive check: show what was returned
+    st.write("🔍 Debug: Unknown senders returned by scan_senders():")
+    st.code(json.dumps(unk, indent=2))
+
     st.session_state.unknown = {
         s: cnt for s, cnt in unk.items()
         if s not in wl and s not in apr and s not in oo
@@ -156,6 +158,11 @@ if st.button("💾 Submit Classifications"):
 
     # Rebuild unknown list and reset choices
     _, unk = scan_senders(limit=None)
+
+    # Defensive check: show what was returned
+    st.write("🔍 Debug: Unknown senders returned by scan_senders():")
+    st.code(json.dumps(unk, indent=2))
+
     wl   = load_json(WHITELIST_FILE,   {"emails": [], "domains": []})["emails"]
     apr  = load_json(APPROVED_FILE,    [])
     oo   = load_json(ONEOFF_FILE,      [])
