@@ -6,6 +6,11 @@ from mail_scanner import scan_senders, load_json
 from action_cleanup import unsubscribe_and_delete_sender as cleanup_sender
 from github import Github  # PyGithub
 
+# ─── PAGE CONFIG (must be the first Streamlit call) ───────────────────────
+st.set_page_config(layout="wide", page_title="Email Cleanup Dashboard")
+# ──────────────────────────────────────────────────────────────────────────
+
+# ─── “Reset Scan” logic ─────────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.session_state.initialized = True
 else:
@@ -13,7 +18,7 @@ else:
         for key in ["unknown", "choices"]:
             st.session_state.pop(key, None)
         st.experimental_rerun()
-
+# ──────────────────────────────────────────────────────────────────────────
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────
 WHITELIST_FILE = "whitelist.json"
@@ -22,7 +27,7 @@ ONEOFF_FILE    = "oneoff.json"
 REPO_NAME      = "peterclark89/email-cleaner"
 # ──────────────────────────────────────────────────────────────────────────
 
-# A simple module‐level flag (dict) to track cleanup status across reruns
+# A simple module‐level flag to track background cleanup status
 cleanup_status = {"running": False}
 
 def push_to_github(local_path, repo_path, commit_message):
@@ -42,16 +47,14 @@ def push_to_github(local_path, repo_path, commit_message):
 
 def run_cleanup_thread(senders_to_cleanup):
     """
-    This runs in a separate thread to unsubscribe & delete mail for each sender.
+    Runs in a separate thread to unsubscribe & delete mail for each sender.
     When done, it clears the running flag.
     """
     for s in senders_to_cleanup:
         try:
             cleanup_sender(s)
-        except Exception as e:
-            # Optionally log e somewhere
+        except Exception:
             pass
-    # After finishing, clear the flag:
     cleanup_status["running"] = False
 
 # ─── Ensure safelist files exist ────────────────────────────────────────────
@@ -66,7 +69,6 @@ for path, default in [
 
 # ─── Initial scan & session-state setup ──────────────────────────────────
 if "unknown" not in st.session_state or "choices" not in st.session_state:
-    # Load existing safelists
     wl   = load_json(WHITELIST_FILE, {"emails": [], "domains": []})["emails"]
     apr  = load_json(APPROVED_FILE,  [])
     oo   = load_json(ONEOFF_FILE,    [])
@@ -75,11 +77,9 @@ if "unknown" not in st.session_state or "choices" not in st.session_state:
         s: cnt for s, cnt in unk.items()
         if s not in wl and s not in apr and s not in oo
     }
-    # Initialize all choices to None
     st.session_state.choices = {s: None for s in st.session_state.unknown}
 
-# ─── Page setup ────────────────────────────────────────────────────────────
-st.set_page_config(layout="wide", page_title="Email Cleanup Dashboard")
+# ─── Page title ────────────────────────────────────────────────────────────
 st.title("📧 Email Cleanup Dashboard")
 
 # ─── If cleanup is in progress, show a banner ───────────────────────────────
