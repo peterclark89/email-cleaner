@@ -6,6 +6,15 @@ from mail_scanner import scan_senders, load_json
 from action_cleanup import unsubscribe_and_delete_sender as cleanup_sender
 from github import Github  # PyGithub
 
+if "initialized" not in st.session_state:
+    st.session_state.initialized = True
+else:
+    if st.button("🔄 Reset Scan"):
+        for key in ["unknown", "choices"]:
+            st.session_state.pop(key, None)
+        st.experimental_rerun()
+
+
 # ─── CONFIG ────────────────────────────────────────────────────────────────
 WHITELIST_FILE = "whitelist.json"
 APPROVED_FILE  = "approved_senders.json"
