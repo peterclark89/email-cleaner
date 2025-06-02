@@ -139,3 +139,12 @@ if st.button("🧹 Run Cleanup for Approved & One-Off"):
         st.success(f"✅ Completed cleanup for {len(to_cleanup)} senders.")
     else:
         st.info("No senders marked for cleanup.")
+        
+# ─── Debug: Show current safelists ─────────────────────────────────────────
+with st.expander("🔍 View current safelists"):
+    st.markdown("**whitelist.json**")
+    st.code(json.dumps(load_json(WHITELIST_FILE, {"emails":[], "domains":[]}), indent=2))
+    st.markdown("**approved_senders.json**")
+    st.code(json.dumps(load_json(APPROVED_FILE, []), indent=2))
+    st.markdown("**oneoff.json**")
+    st.code(json.dumps(load_json(ONEOFF_FILE, []), indent=2))
