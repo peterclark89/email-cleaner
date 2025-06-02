@@ -1,5 +1,3 @@
-# mail_scanner.py
-
 import os
 import imaplib
 import email
@@ -12,7 +10,6 @@ gmail_addr = os.getenv("EMAIL_ADDRESS")
 gmail_pass = os.getenv("EMAIL_PASSWORD")
 yahoo_addr = os.getenv("YAHOO_EMAIL")
 yahoo_pass = os.getenv("YAHOO_PASSWORD")
-# ──────────────────────────────────────────────────────────────────────────
 
 # ─── CONFIGURATION: one dict per account ──────────────────────────────────
 ACCOUNTS = [
@@ -27,7 +24,6 @@ ACCOUNTS = [
         "IMAP_SERVER":    "imap.mail.yahoo.com"
     }
 ]
-# ──────────────────────────────────────────────────────────────────────────
 
 # Folders to scan
 FOLDERS  = ["INBOX", "[Gmail]/Spam", "Inbox", "Bulk"]
@@ -75,7 +71,7 @@ def login_imap(acct):
 def scan_senders(limit=None):
     """
     Scan all ACCOUNTS & FOLDERS for mail older than DAYS_OLD,
-    apply safelists, and return (sorted_corporate_list, unknown_dict).
+    apply safelists, and return (sorted_corporate_list, unknown_dict, skipped_dict)
     """
     whitelist = load_json(WHITELIST_FILE, {'emails': [], 'domains': []})
     blacklist = load_json(BLACKLIST_FILE, {'domains': []})
@@ -84,6 +80,7 @@ def scan_senders(limit=None):
 
     corporate = set()
     unknown   = {}
+    skipped   = {"whitelist": [], "approved": [], "oneoff": []}
 
     cutoff = (datetime.date.today() - datetime.timedelta(days=DAYS_OLD))\
              .strftime("%d-%b-%Y")
@@ -103,8 +100,7 @@ def scan_senders(limit=None):
                 continue
 
             fetch_list = b','.join(ids)
-            status, parts = mail.fetch(fetch_list,
-                                       '(BODY.PEEK[HEADER.FIELDS (FROM)])')
+            status, parts = mail.fetch(fetch_list, '(BODY.PEEK[HEADER.FIELDS (FROM)])')
             if status != 'OK':
                 continue
 
@@ -115,25 +111,32 @@ def scan_senders(limit=None):
                 sender = parseaddr(msg.get('From',''))[1].lower()
                 domain = sender.split('@')[-1] if '@' in sender else ''
 
-                # Skip whitelist
                 if sender in whitelist['emails'] or domain in whitelist['domains']:
+                    skipped["whitelist"].append(sender)
+                    continue
+                if sender in approved:
+                    skipped["approved"].append(sender)
+                    corporate.add(sender)
+                    continue
+                if sender in oneoff:
+                    skipped["oneoff"].append(sender)
+                    corporate.add(sender)
                     continue
 
-                # Corporate auto-cleanup
-                if domain in blacklist['domains'] or sender in approved or sender in oneoff:
-                    corporate.add(sender)
-                else:
-                    unknown[sender] = unknown.get(sender, 0) + 1
+                unknown[sender] = unknown.get(sender, 0) + 1
 
         mail.logout()
 
-    return sorted(corporate), unknown
+    return sorted(corporate), unknown, skipped
 
 if __name__ == "__main__":
-    corp, unk = scan_senders(limit=None)
+    corp, unk, skipped = scan_senders(limit=None)
     print("Corporate senders to clean up:")
     for s in corp:
         print(" -", s)
-    print(f"\nUnknown senders ({len(unk)})")
-    for s,count in unk.items():
+    print(f"\nUnknown senders ({len(unk)}):")
+    for s, count in unk.items():
         print(f" - {s}: {count}")
+    print("\nSkipped senders:")
+    for cat, senders in skipped.items():
+        print(f" - {cat}: {len(senders)} senders")
