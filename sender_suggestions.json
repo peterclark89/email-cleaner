@@ -1,0 +1,27 @@
+{
+  "cloudplatform-noreply@google.com": {
+    "suggestion": "approved",
+    "reason": "The email sender 'cloudplatform-noreply@google.com' is likely an automated sender related to Google Cloud services, which falls under the 'approved' category of newsletters, alerts, or accounts you want to auto-clean. The recent email subjects also indicate account confirmation for a Google Cloud free trial, further supporting the classification as 'approved'.",
+    "timestamp": "2025-06-05T22:16:40.705512"
+  },
+  "atfm75724@gmail.com": {
+    "suggestion": "oneoff",
+    "reason": "The email address atfm75724@gmail.com and the subject related to cart items suggest that this sender is likely associated with a one-time transaction or purchase, making it a oneoff classification.",
+    "timestamp": "2025-06-05T22:16:41.819970"
+  },
+  "malizanigulo@gmail.com": {
+    "suggestion": "** 'oneoff'",
+    "reason": "** The email address malizanigulo@gmail.com does not appear in the provided whitelisted or approved senders lists. Additionally, the recent email subject seems to be related to a product/service upgrade and payment receipt, which is more indicative of a one-off sender such as a service provider or vendor.",
+    "timestamp": "2025-06-05T22:16:43.044608"
+  },
+  "reply@bestoffes.com": {
+    "suggestion": "** 'oneoff'",
+    "reason": "** The sender email address 'reply@bestoffes.com' does not match any of the known whitelisted or approved senders. Additionally, the email subject \"Upgrade Your Roof, Save on Costs: Metal Roofs Await\" seems to be promotional in nature, which aligns more with the oneoff category for emails that are likely marketing or promotional messages.",
+    "timestamp": "2025-06-05T22:16:45.092735"
+  },
+  "subscription@hotmail.com": {
+    "suggestion": "approved",
+    "reason": "The email address 'subscription@hotmail.com' is likely related to a subscription service, which aligns with the known approved senders list that includes newsletters and alerts. Additionally, the recent email subject suggests a notification or alert type of message, further supporting the classification as an approved sender.",
+    "timestamp": "2025-06-05T22:16:46.322770"
+  }
+}
