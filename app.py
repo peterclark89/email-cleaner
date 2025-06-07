@@ -13,12 +13,12 @@ WHITELIST_FILE = "whitelist.json"
 APPROVED_FILE  = "approved_senders.json"
 ONEOFF_FILE    = "oneoff.json"
 SUGGESTIONS_FILE = "sender_suggestions.json"
-REPO_NAME      = "peterclark89/email-cleaner"
+REPO_NAME = "peterclark89/email-cleaner"
 
 def push_to_github(local_path, repo_path, commit_message):
     token = os.getenv("GITHUB_TOKEN")
-    gh    = Github(token)
-    repo  = gh.get_repo(REPO_NAME)
+    gh = Github(token)
+    repo = gh.get_repo(REPO_NAME)
     with open(local_path, "r") as f:
         content = f.read()
     try:
@@ -35,19 +35,12 @@ def run_cleanup_thread(senders_to_cleanup):
             pass
     st.session_state["cleanup_running"] = False
 
-def load_suggestions():
-    if os.path.exists(SUGGESTIONS_FILE):
-        with open(SUGGESTIONS_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-ai_suggestions = load_suggestions()
-
-# ─── Ensure files exist ─────────────────────────────────────────
+# ─── Ensure safelist files exist ────────────────────────────────
 for path, default in [
     (WHITELIST_FILE, {"emails": [], "domains": []}),
     (APPROVED_FILE,  []),
-    (ONEOFF_FILE,    [])
+    (ONEOFF_FILE,    []),
+    (SUGGESTIONS_FILE, {})
 ]:
     if not os.path.exists(path):
         with open(path, "w") as f:
@@ -62,13 +55,15 @@ if st.button("🔄 Reset Scan"):
 
 # ─── Initial scan ───────────────────────────────────────────────
 if "unknown" not in st.session_state or "choices" not in st.session_state:
-    wl   = load_json(WHITELIST_FILE, {"emails": [], "domains": []})["emails"]
-    apr  = load_json(APPROVED_FILE,  [])
-    oo   = load_json(ONEOFF_FILE,    [])
-    _, unk, skipped, _ = scan_senders(limit=500)
-
-    st.write("🔍 Debug: Unknown senders returned by scan_senders():")
-    st.code(json.dumps(unk, indent=2))
+    st.title("📧 Email Cleanup Dashboard")
+    with st.spinner("Scanning email accounts..."):
+        st.write("📡 Starting scan_senders(limit=50)...")
+        wl   = load_json(WHITELIST_FILE, {"emails": [], "domains": []})["emails"]
+        apr  = load_json(APPROVED_FILE,  [])
+        oo   = load_json(ONEOFF_FILE,    [])
+        suggestions = load_json(SUGGESTIONS_FILE, {})
+        _, unk, skipped, _ = scan_senders(limit=50)
+        st.write(f"📬 Scan complete. Found {len(unk)} unknown senders.")
 
     with st.expander("🚫 Skipped senders (already classified)"):
         st.code(json.dumps(skipped, indent=2))
@@ -80,10 +75,10 @@ if "unknown" not in st.session_state or "choices" not in st.session_state:
 
     st.session_state.choices = {}
     for s in st.session_state.unknown:
-        suggestion = ai_suggestions.get(s, {}).get("suggestion")
-        st.session_state.choices[s] = suggestion if suggestion in {"whitelist", "approved", "oneoff"} else None
+        ai_guess = suggestions.get(s, {}).get("suggestion")
+        st.session_state.choices[s] = ai_guess if ai_guess in {"whitelist", "approved", "oneoff"} else None
 
-# ─── UI Header ───────────────────────────────────────────────────
+# ─── UI Layout ──────────────────────────────────────────────────
 st.title("📧 Email Cleanup Dashboard")
 
 if st.session_state["cleanup_running"]:
@@ -104,16 +99,11 @@ if header_cols[3].button("Select All", key="sel_all_oo"):
         st.session_state.choices[s] = "oneoff"
 header_cols[3].markdown("**One-Off**")
 
-# ─── Per-sender rows with AI suggestions ─────────────────────────
 for sender, count in st.session_state.unknown.items():
     choice = st.session_state.choices[sender]
-    suggestion = ai_suggestions.get(sender, {})
     cols = st.columns([4,1,1,1])
-    label = f"**{sender}** ({count})"
-    if suggestion:
-        label += f"<br/><span style='color:gray;'>Suggested: {suggestion['suggestion']} — {suggestion['reason']}</span>"
-    cols[0].markdown(label, unsafe_allow_html=True)
-
+    suggestion_note = f" _(AI suggestion: **{choice}**)_ " if choice else ""
+    cols[0].markdown(f"**{sender}** ({count}){suggestion_note}")
     icon = "☑️" if choice == "whitelist" else "☐"
     if cols[1].button(icon, key=f"wl_{sender}"):
         st.session_state.choices[sender] = "whitelist"
@@ -151,22 +141,7 @@ if st.button("💾 Submit Classifications"):
 
     st.success("✅ Classifications saved and pushed to GitHub!")
 
-    _, unk, skipped, _ = scan_senders(limit=500)
-    st.write("🔍 Debug: Unknown senders returned by scan_senders():")
-    st.code(json.dumps(unk, indent=2))
-    with st.expander("🚫 Skipped senders (already classified)"):
-        st.code(json.dumps(skipped, indent=2))
-
-    wl   = load_json(WHITELIST_FILE, {"emails": [], "domains": []})["emails"]
-    apr  = load_json(APPROVED_FILE, [])
-    oo   = load_json(ONEOFF_FILE, [])
-    st.session_state.unknown = {
-        s: cnt for s, cnt in unk.items()
-        if s not in wl and s not in apr and s not in oo
-    }
-    st.session_state.choices = {
-        s: ai_suggestions.get(s, {}).get("suggestion") for s in st.session_state.unknown
-    }
+    st.rerun()
 
 # ─── Run Cleanup ────────────────────────────────────────────────
 if st.button("🧹 Run Cleanup for Approved & One-Off"):
@@ -186,7 +161,7 @@ if st.button("🧹 Run Cleanup for Approved & One-Off"):
     else:
         st.info("Cleanup is already running.")
 
-# ─── Debug Expander ─────────────────────────────────────────────
+# ─── Debug Viewer ───────────────────────────────────────────────
 with st.expander("🔍 View current safelists"):
     st.markdown("**whitelist.json**")
     st.code(json.dumps(load_json(WHITELIST_FILE, {"emails":[], "domains":[]}), indent=2))
@@ -195,4 +170,4 @@ with st.expander("🔍 View current safelists"):
     st.markdown("**oneoff.json**")
     st.code(json.dumps(load_json(ONEOFF_FILE, []), indent=2))
     st.markdown("**sender_suggestions.json**")
-    st.code(json.dumps(ai_suggestions, indent=2))
+    st.code(json.dumps(load_json(SUGGESTIONS_FILE, {}), indent=2))
